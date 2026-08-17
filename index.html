@@ -1,0 +1,1203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Two Slits — An Interactive Quantum Optics Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#080b10;
+    --bg2:#0d121a;
+    --panel: rgba(13,18,26,0.86);
+    --panel-solid:#0e131b;
+    --border: rgba(148,163,184,0.14);
+    --border-strong: rgba(148,163,184,0.28);
+    --text:#eef2f7;
+    --text-dim:#8b96a8;
+    --text-faint:#5c6779;
+    --cyan:#3ee8ff;
+    --cyan-dim: rgba(62,232,255,0.35);
+    --green:#52ffab;
+    --green-dim: rgba(82,255,171,0.35);
+    --red:#ff5170;
+    --red-dim: rgba(255,81,112,0.35);
+    --amber:#ffb84d;
+    --radius:14px;
+  }
+
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:'Inter', sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  ::selection{ background: var(--cyan-dim); color:#fff; }
+
+  .mono{ font-family:'IBM Plex Mono', monospace; }
+  .display{ font-family:'Space Grotesk', sans-serif; }
+
+  a{ color: var(--cyan); }
+
+  /* ============ HERO / SIMULATION ============ */
+  #hero{
+    position:relative;
+    width:100%;
+    height:100vh;
+    min-height:560px;
+    overflow:hidden;
+    background:
+      radial-gradient(ellipse at 30% 20%, rgba(62,232,255,0.06), transparent 60%),
+      radial-gradient(ellipse at 80% 80%, rgba(255,81,112,0.05), transparent 55%),
+      var(--bg);
+  }
+  #canvas-wrap{ position:absolute; inset:0; }
+  #canvas-wrap canvas{ display:block; }
+
+  .topbar{
+    position:absolute; top:0; left:0; right:0;
+    display:flex; align-items:center; justify-content:space-between;
+    padding:20px 26px;
+    pointer-events:none;
+    z-index:5;
+  }
+  .brand{
+    display:flex; align-items:baseline; gap:10px;
+    pointer-events:auto;
+  }
+  .brand .mark{
+    width:10px; height:10px; border-radius:2px;
+    background: var(--cyan);
+    box-shadow:0 0 12px var(--cyan);
+    transform:rotate(45deg);
+  }
+  .brand .name{ font-size:15px; letter-spacing:0.14em; font-weight:600; }
+  .brand .tag{ font-size:11px; color:var(--text-faint); letter-spacing:0.04em; }
+
+  .scroll-cue{
+    position:absolute; bottom:18px; left:50%; transform:translateX(-50%);
+    display:flex; flex-direction:column; align-items:center; gap:6px;
+    color:var(--text-faint); font-size:11px; letter-spacing:0.12em;
+    text-transform:uppercase; text-decoration:none;
+    z-index:5;
+    opacity:0.8;
+    transition:opacity .2s;
+  }
+  .scroll-cue:hover{ opacity:1; }
+  .scroll-cue .chev{
+    width:9px; height:9px; border-right:1.5px solid var(--text-dim); border-bottom:1.5px solid var(--text-dim);
+    transform:rotate(45deg);
+    animation: bob 1.8s ease-in-out infinite;
+  }
+  @keyframes bob{ 0%,100%{ transform:rotate(45deg) translate(0,0);} 50%{ transform:rotate(45deg) translate(4px,4px);} }
+
+  /* Panels */
+  .panel{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    box-shadow:0 12px 32px rgba(0,0,0,0.35);
+    pointer-events:auto;
+  }
+
+  #controls{
+    position:absolute; top:74px; left:20px;
+    width:296px;
+    padding:18px 18px 16px;
+    z-index:6;
+    max-height:calc(100vh - 110px);
+    overflow-y:auto;
+  }
+  #controls::-webkit-scrollbar{ width:6px; }
+  #controls::-webkit-scrollbar-thumb{ background:var(--border-strong); border-radius:4px; }
+
+  .panel-title{
+    font-size:11px; letter-spacing:0.14em; text-transform:uppercase;
+    color:var(--text-faint); margin:0 0 14px; display:flex; align-items:center; gap:8px;
+  }
+  .panel-title .dot{ width:6px;height:6px;border-radius:50%; background:var(--cyan); box-shadow:0 0 8px var(--cyan); }
+
+  .field{ margin-bottom:16px; }
+  .field-label{
+    display:flex; justify-content:space-between; align-items:baseline;
+    font-size:12.5px; color:var(--text-dim); margin-bottom:7px;
+  }
+  .field-label b{ color:var(--text); font-weight:500; }
+  .field-label .val{ font-family:'IBM Plex Mono', monospace; font-size:12px; color:var(--cyan); }
+
+  input[type=range]{
+    -webkit-appearance:none; appearance:none;
+    width:100%; height:3px; border-radius:2px;
+    background:var(--border-strong);
+    outline:none; cursor:pointer;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none; appearance:none;
+    width:14px; height:14px; border-radius:50%;
+    background: var(--text);
+    border:2px solid var(--bg);
+    box-shadow:0 0 0 1px var(--border-strong), 0 0 10px rgba(255,255,255,0.25);
+    cursor:pointer;
+    margin-top:0;
+  }
+  input[type=range]::-moz-range-thumb{
+    width:14px; height:14px; border-radius:50%;
+    background: var(--text); border:2px solid var(--bg); cursor:pointer;
+  }
+
+  .swatch-row{ display:flex; align-items:center; gap:10px; }
+  .swatch{
+    width:34px; height:34px; border-radius:8px; flex:0 0 auto;
+    border:1px solid var(--border-strong);
+    box-shadow: inset 0 0 10px rgba(0,0,0,0.4);
+  }
+
+  .divider{ height:1px; background:var(--border); margin:16px 0; }
+
+  .observer-toggle{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:12px 14px; border-radius:10px;
+    background:rgba(255,255,255,0.02);
+    border:1px solid var(--border);
+    margin-bottom:14px;
+    transition:border-color .25s, background .25s;
+  }
+  .observer-toggle.active{
+    border-color: var(--red-dim);
+    background: rgba(255,81,112,0.06);
+  }
+  .observer-toggle .ot-label{ font-size:13px; }
+  .observer-toggle .ot-sub{ font-size:11px; color:var(--text-faint); margin-top:2px; }
+
+  .switch{
+    position:relative; width:40px; height:22px; flex:0 0 auto; cursor:pointer;
+  }
+  .switch input{ opacity:0; width:0; height:0; position:absolute; }
+  .switch .track{
+    position:absolute; inset:0; border-radius:20px;
+    background:rgba(255,255,255,0.12);
+    border:1px solid var(--border-strong);
+    transition:background .25s, border-color .25s;
+  }
+  .switch .knob{
+    position:absolute; top:2px; left:2px; width:16px; height:16px; border-radius:50%;
+    background:var(--text-dim);
+    transition:transform .25s, background .25s, box-shadow .25s;
+  }
+  .switch input:checked + .track{ background:rgba(255,81,112,0.18); border-color:var(--red-dim); }
+  .switch input:checked + .track .knob{ transform:translateX(18px); background:var(--red); box-shadow:0 0 10px var(--red); }
+
+  .btn-row{ display:flex; gap:8px; margin-top:4px; }
+  button{
+    font-family:'Inter', sans-serif; font-size:12.5px; font-weight:600;
+    border-radius:9px; border:1px solid var(--border-strong);
+    background:rgba(255,255,255,0.03); color:var(--text);
+    padding:9px 12px; cursor:pointer;
+    display:flex; align-items:center; justify-content:center; gap:6px;
+    transition:background .15s, border-color .15s, transform .1s;
+  }
+  button:hover{ background:rgba(255,255,255,0.08); border-color:var(--border-strong); }
+  button:active{ transform:scale(0.97); }
+  button.primary{ background:var(--cyan); color:#00161a; border-color:var(--cyan); }
+  button.primary:hover{ background:#5cf0ff; }
+  #playPauseBtn{ flex:1; }
+  #resetBtn{ flex:1; }
+
+  .checkbox-row{
+    display:flex; align-items:center; gap:9px; font-size:12.5px; color:var(--text-dim);
+    cursor:pointer; user-select:none; margin-top:2px;
+  }
+  .checkbox-row input{ accent-color: var(--cyan); width:14px; height:14px; }
+
+  /* Stats panel */
+  #stats{
+    position:absolute; top:74px; right:20px;
+    width:224px;
+    padding:16px 18px;
+    z-index:6;
+  }
+  .stat-row{ display:flex; justify-content:space-between; align-items:baseline; padding:6px 0; }
+  .stat-row .k{ font-size:11.5px; color:var(--text-faint); }
+  .stat-row .v{ font-family:'IBM Plex Mono', monospace; font-size:13px; color:var(--text); }
+  #patternBadge{
+    display:inline-block; margin-top:8px; padding:5px 10px; border-radius:20px;
+    font-size:11px; font-weight:600; letter-spacing:0.03em;
+    background: rgba(62,232,255,0.1); color:var(--cyan); border:1px solid var(--cyan-dim);
+    transition: all .3s;
+  }
+  #patternBadge.observed{
+    background: rgba(255,81,112,0.1); color:var(--red); border-color:var(--red-dim);
+  }
+
+  /* Histogram panel */
+  #histPanel{
+    position:absolute; right:20px; bottom:20px;
+    width:290px;
+    padding:14px 16px 12px;
+    z-index:6;
+  }
+  #histCanvas{ width:100%; height:120px; display:block; border-radius:8px; }
+  .hist-legend{ display:flex; gap:14px; margin-top:8px; font-size:10.5px; color:var(--text-faint); }
+  .hist-legend span{ display:inline-flex; align-items:center; gap:5px; }
+  .hist-legend i{ width:9px; height:9px; border-radius:2px; display:inline-block; }
+
+  /* status ticker */
+  #status{
+    position:absolute; left:20px; bottom:20px;
+    max-width:min(58vw,520px);
+    padding:12px 16px;
+    z-index:6;
+    font-size:12.5px; line-height:1.5; color:var(--text-dim);
+  }
+  #status b{ color:var(--text); font-weight:600; }
+  #status .accent{ color:var(--cyan); }
+  #status.observed .accent{ color:var(--red); }
+
+  #onboardTip{
+    position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
+    padding:16px 22px; text-align:center; z-index:20;
+    font-size:13px; color:var(--text-dim); max-width:340px;
+    transition:opacity .5s, visibility .5s;
+  }
+  #onboardTip b{ color:var(--text); }
+
+  /* ============ NOTES / NOTEBOOK SECTION ============ */
+  #notes{
+    background: var(--bg2);
+    border-top:1px solid var(--border);
+    padding:90px 24px 60px;
+    position:relative;
+  }
+  .nb-nav{
+    position:sticky; top:0; z-index:10;
+    display:flex; gap:6px; flex-wrap:wrap;
+    justify-content:center;
+    margin:0 auto 64px;
+    max-width:820px;
+    padding:10px; border-radius:999px;
+    background:rgba(8,11,16,0.7);
+    backdrop-filter:blur(10px);
+    border:1px solid var(--border);
+    width:fit-content;
+  }
+  .nb-nav a{
+    text-decoration:none; color:var(--text-faint); font-size:11.5px;
+    padding:7px 13px; border-radius:999px;
+    letter-spacing:0.02em;
+    transition:background .15s, color .15s;
+    white-space:nowrap;
+  }
+  .nb-nav a:hover{ background:rgba(255,255,255,0.06); color:var(--text); }
+
+  .article{ max-width:700px; margin:0 auto; }
+  .article-header{ text-align:center; margin-bottom:80px; }
+  .article-header .eyebrow{
+    font-size:11px; letter-spacing:0.18em; text-transform:uppercase; color:var(--cyan);
+    margin-bottom:14px;
+  }
+  .article-header h1{
+    font-family:'Space Grotesk', sans-serif; font-weight:600;
+    font-size:clamp(32px,5vw,48px); line-height:1.1; margin:0 0 18px;
+  }
+  .article-header p{ color:var(--text-dim); font-size:16px; line-height:1.6; max-width:520px; margin:0 auto; }
+
+  .sec{ margin-bottom:88px; scroll-margin-top:90px; }
+  .sec-eyebrow{
+    font-family:'IBM Plex Mono', monospace; font-size:11px; letter-spacing:0.12em;
+    color:var(--text-faint); text-transform:uppercase; margin-bottom:10px;
+    display:flex; align-items:center; gap:10px;
+  }
+  .sec-eyebrow::before{ content:''; width:22px; height:1px; background:var(--border-strong); }
+  .sec h2{
+    font-family:'Space Grotesk', sans-serif; font-weight:600; font-size:26px;
+    margin:0 0 20px; letter-spacing:-0.01em;
+  }
+  .sec p{ font-size:15.5px; line-height:1.75; color:#c3cad6; margin:0 0 18px; }
+  .sec p b{ color:var(--text); font-weight:600; }
+  .sec ul{ margin:0 0 18px; padding-left:20px; color:#c3cad6; font-size:15px; line-height:1.75; }
+  .sec li{ margin-bottom:6px; }
+
+  .formula{
+    background:rgba(255,255,255,0.03);
+    border:1px solid var(--border);
+    border-left:2px solid var(--cyan);
+    border-radius:8px;
+    padding:16px 20px;
+    margin:20px 0;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:14px;
+    color:var(--cyan);
+    overflow-x:auto;
+    white-space:pre;
+  }
+  .formula .note{ display:block; font-family:'Inter',sans-serif; color:var(--text-faint); font-size:12px; margin-top:8px; }
+
+  .callout{
+    display:flex; gap:14px;
+    background:rgba(255,255,255,0.025);
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:16px 18px;
+    margin:22px 0;
+  }
+  .callout .ic{ font-size:18px; flex:0 0 auto; }
+  .callout p{ margin:0; font-size:14px; color:var(--text-dim); line-height:1.65; }
+  .callout.warn{ border-left:2px solid var(--red); }
+  .callout.tip{ border-left:2px solid var(--green); }
+
+  .two-col{ display:grid; grid-template-columns:1fr 1fr; gap:20px; margin:24px 0; }
+  .mini-card{
+    border:1px solid var(--border); border-radius:10px; padding:16px;
+    background:rgba(255,255,255,0.02);
+  }
+  .mini-card .mc-h{ font-size:12px; letter-spacing:0.06em; text-transform:uppercase; color:var(--text-faint); margin-bottom:8px; }
+  .mini-card p{ font-size:13.5px; margin:0; color:var(--text-dim); line-height:1.6; }
+
+  footer{
+    text-align:center; padding:40px 24px 60px; color:var(--text-faint); font-size:12px;
+    border-top:1px solid var(--border);
+  }
+  footer a{ color:var(--text-dim); }
+
+  @media (max-width:900px){
+    #controls{ width:250px; }
+    #stats{ width:190px; }
+    #histPanel{ width:230px; }
+  }
+
+  @media (max-width:760px){
+    .topbar{ padding:14px 14px; }
+    #controls{
+      top:auto; bottom:0; left:0; right:0; width:100%;
+      max-height:44vh;
+      border-radius:16px 16px 0 0;
+      border-bottom:none;
+    }
+    #stats{ top:64px; right:12px; width:150px; padding:12px 14px; }
+    #stats .stat-row .k{ font-size:10.5px; }
+    #stats .stat-row .v{ font-size:11.5px; }
+    #histPanel{ display:none; }
+    #status{ display:none; }
+    .scroll-cue{ bottom:calc(44vh + 10px); }
+    .two-col{ grid-template-columns:1fr; }
+  }
+
+  [data-reveal]{ opacity:0; transform:translateY(14px); transition:opacity .6s ease, transform .6s ease; }
+  [data-reveal].in{ opacity:1; transform:translateY(0); }
+
+  @media (prefers-reduced-motion: reduce){
+    html{ scroll-behavior:auto; }
+    .scroll-cue .chev{ animation:none; }
+    [data-reveal]{ transition:none; opacity:1; transform:none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ================= HERO / 3D SIMULATION ================= -->
+<section id="hero">
+  <div id="canvas-wrap"></div>
+
+  <div class="topbar">
+    <div class="brand">
+      <div class="mark"></div>
+      <div>
+        <div class="name display">TWO SLITS</div>
+        <div class="tag mono">an interactive quantum optics lab</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Controls -->
+  <div id="controls" class="panel">
+    <div class="panel-title"><span class="dot"></span>Apparatus controls</div>
+
+    <div class="field">
+      <div class="field-label"><span>Wavelength</span><span class="val" id="wlVal">632 nm</span></div>
+      <div class="swatch-row">
+        <div class="swatch" id="wlSwatch"></div>
+        <input type="range" id="wlSlider" min="380" max="700" step="1" value="632">
+      </div>
+    </div>
+
+    <div class="field">
+      <div class="field-label"><span>Slit separation <span class="mono" style="color:var(--text-faint)">(d)</span></span><span class="val" id="dVal">1.10</span></div>
+      <input type="range" id="dSlider" min="0.6" max="2.2" step="0.02" value="1.1">
+    </div>
+
+    <div class="field">
+      <div class="field-label"><span>Slit width <span class="mono" style="color:var(--text-faint)">(a)</span></span><span class="val" id="aVal">0.16</span></div>
+      <input type="range" id="aSlider" min="0.04" max="0.4" step="0.01" value="0.16">
+    </div>
+
+    <div class="field">
+      <div class="field-label"><span>Emission rate</span><span class="val" id="rateVal">18 / s</span></div>
+      <input type="range" id="rateSlider" min="1" max="60" step="1" value="18">
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="observer-toggle" id="observerRow">
+      <div>
+        <div class="ot-label">Which-path detector</div>
+        <div class="ot-sub">measure which slit each photon takes</div>
+      </div>
+      <label class="switch">
+        <input type="checkbox" id="observerToggle">
+        <span class="track"><span class="knob"></span></span>
+      </label>
+    </div>
+
+    <label class="checkbox-row">
+      <input type="checkbox" id="waveToggle" checked>
+      Show wavefronts (Huygens ripples)
+    </label>
+
+    <div class="divider"></div>
+
+    <div class="btn-row">
+      <button class="primary" id="playPauseBtn">⏸ Pause</button>
+      <button id="resetBtn">↺ Reset screen</button>
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div id="stats" class="panel">
+    <div class="panel-title"><span class="dot" style="background:var(--green);box-shadow:0 0 8px var(--green)"></span>Readout</div>
+    <div class="stat-row"><span class="k">Photons fired</span><span class="v" id="statCount">0</span></div>
+    <div class="stat-row"><span class="k">Fringe spacing</span><span class="v" id="statFringe">—</span></div>
+    <div class="stat-row"><span class="k">Regime</span><span class="v" id="statRegime">Fraunhofer</span></div>
+    <div id="patternBadge">◈ Interference pattern</div>
+  </div>
+
+  <!-- Histogram -->
+  <div id="histPanel" class="panel">
+    <div class="panel-title" style="margin-bottom:8px;"><span class="dot" style="background:var(--amber);box-shadow:0 0 8px var(--amber)"></span>Detector screen — live count</div>
+    <canvas id="histCanvas" width="580" height="240"></canvas>
+    <div class="hist-legend">
+      <span><i style="background:var(--green)"></i>measured hits</span>
+      <span><i style="background:var(--cyan)"></i>theory curve</span>
+    </div>
+  </div>
+
+  <!-- Status -->
+  <div id="status" class="panel">
+    <span class="accent mono" id="statusMode">SUPERPOSITION</span> — each photon's wavefunction passes through <b>both slits at once</b> and interferes with itself before landing on the screen.
+  </div>
+
+  <a href="#notes" class="scroll-cue"><span>Read the lab notes</span><span class="chev"></span></a>
+
+  <div id="onboardTip" class="panel">
+    <b>Drag</b> to orbit the bench · <b>Scroll</b> to zoom<br>
+    Flip the <b style="color:var(--red)">which-path detector</b> to watch the pattern collapse.
+  </div>
+</section>
+
+<!-- ================= NOTES SECTION ================= -->
+<section id="notes">
+  <div class="article">
+
+    <div class="article-header">
+      <div class="eyebrow">Lab notebook</div>
+      <h1 class="display">The experiment that refuses<br>to make sense</h1>
+      <p>A working explanation of every mechanism in the simulation above — the wave behaviour, the particle behaviour, and what actually happens when you "watch" a photon choose its slit.</p>
+    </div>
+
+    <nav class="nb-nav mono">
+      <a href="#setup">Setup</a>
+      <a href="#wave">Wave nature</a>
+      <a href="#particle">Particle nature</a>
+      <a href="#observer">The observer effect</a>
+      <a href="#collapse">Collapse & decoherence</a>
+      <a href="#why">Why it matters</a>
+    </nav>
+
+    <div class="sec" id="setup" data-reveal>
+      <div class="sec-eyebrow">01 — The setup</div>
+      <h2>Three objects, one very strange screen</h2>
+      <p>The apparatus in the 3D scene mirrors the real experiment first performed by <b>Thomas Young in 1801</b>, later repeated one particle at a time in the 20th century: a coherent light source, a barrier with two narrow slits, and a detection screen a fixed distance behind it.</p>
+      <ul>
+        <li><b>Source</b> — emits photons one at a time, all with the same wavelength (set by the slider), so every photon is coherent with itself.</li>
+        <li><b>Slit plate</b> — an opaque barrier with two openings, whose separation (d) and width (a) you control directly.</li>
+        <li><b>Screen</b> — a phosphor-coated detector. Every photon that arrives leaves a single, localized green dot — never a smear.</li>
+      </ul>
+      <p>Run the simulation with the detector <b>off</b> and watch dots accumulate. Individually they look random. Given enough of them, they are not.</p>
+    </div>
+
+    <div class="sec" id="wave" data-reveal>
+      <div class="sec-eyebrow">02 — Wave nature</div>
+      <h2>Superposition and self-interference</h2>
+      <p>When no measurement is made at the slits, light behaves exactly as Maxwell's equations predict: a wave. Each slit acts as a new source of circular (spherical, in 3D) wavefronts — this is <b>Huygens' principle</b>, visualized in the scene as the expanding cyan ripples. Where two wave crests meet, they add; where a crest meets a trough, they cancel.</p>
+      <p>The resulting light intensity striking the screen at horizontal position <span class="mono">x</span> is the classic double-slit diffraction formula:</p>
+      <div class="formula">I(x) = I₀ · [ sin(β)/β ]² · cos²(δ)
+
+  β = (π·a·x) / (λ·L)      — single-slit diffraction envelope
+  δ = (π·d·x) / (λ·L)      — two-slit interference term<span class="note">a = slit width · d = slit separation · λ = wavelength · L = slit-to-screen distance</span></div>
+      <p>The <span class="mono">cos²(δ)</span> term is the signature of interference — it is only possible because a <b>single</b> wave amplitude passed through both openings and recombined. Increase the wavelength and watch the bright fringes spread apart; widen the slit separation and watch them squeeze together. This is exactly the relationship the formula predicts.</p>
+      <div class="callout tip">
+        <div class="ic">💡</div>
+        <p>Try it: push the wavelength slider toward violet (short λ) and the fringes narrow. Push it toward red (long λ) and they widen. Fringe spacing scales as <span class="mono">λL/d</span>.</p>
+      </div>
+    </div>
+
+    <div class="sec" id="particle" data-reveal>
+      <div class="sec-eyebrow">03 — Particle nature</div>
+      <h2>Yet every landing is a single click</h2>
+      <p>Here is the part that broke 19th-century physics: the screen never detects a smeared-out wave. It detects <b>discrete, whole photons</b> — one flash, one location, one energy quantum <span class="mono">E = hf</span>, every time. Light is quantized.</p>
+      <p>So which is it — wave or particle? The honest answer is that a single photon's <b>wavefunction</b> — a probability amplitude, not a physical ripple of stuff — spreads through both slits and interferes like a wave. But when it is <b>detected</b>, the wavefunction is sampled once, at one point, with a probability given by <span class="mono">|ψ(x)|²</span>, exactly the intensity formula above.</p>
+      <p>This is why the simulation samples each photon's landing spot from that same <span class="mono">I(x)</span> distribution and draws it as a single point. Fire enough of them — hundreds, thousands — and the individually-random dots build, pixel by pixel, into the smooth interference fringes the wave equation predicted. <b>No single photon "knows" the final picture; the pattern only exists statistically.</b></p>
+      <div class="two-col">
+        <div class="mini-card">
+          <div class="mc-h">One photon</div>
+          <p>Lands at an unpredictable point. Its position is genuinely probabilistic, not just unknown to us.</p>
+        </div>
+        <div class="mini-card">
+          <div class="mc-h">Ten thousand photons</div>
+          <p>Reconstruct the exact interference pattern a continuous wave would produce. Statistics recovers the wave.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="sec" id="observer" data-reveal>
+      <div class="sec-eyebrow">04 — The observer effect</div>
+      <h2>Ask "which slit?" and the fringes vanish</h2>
+      <p>Flip on the <b style="color:var(--red)">which-path detector</b> in the panel above. Now every photon is tagged with which slit it passed through before it reaches the screen. Run it for a while, and the interference fringes disappear — replaced by two overlapping diffraction humps, one behind each slit, exactly what you'd expect from classical particles fired through two independent holes.</p>
+      <p><b>Nothing about the light's path changed.</b> What changed is that path information now exists somewhere in the universe — in this simulation, in the detector; in a real lab, potentially in a polarizer, a scattered photon, or any physical system that becomes correlated with "which slit."</p>
+      <div class="formula">I_which-path(x) = [ sin(β₁)/β₁ ]² + [ sin(β₂)/β₂ ]²
+
+  — the two amplitudes are added as PROBABILITIES, not as amplitudes.
+  — the cross term cos²(δ) that produced fringes is gone.<span class="note">β₁, β₂ are each slit's own diffraction term, computed independently</span></div>
+      <p>This is the precise mathematical difference between the two regimes: interference requires summing complex <b>amplitudes</b> before squaring (<span class="mono">|ψ₁+ψ₂|²</span>); which-path information forces you to sum already-squared <b>probabilities</b> (<span class="mono">|ψ₁|²+|ψ₂|²</span>). The cross term that creates fringes only survives in the first case.</p>
+      <div class="callout warn">
+        <div class="ic">⚠️</div>
+        <p><b>Common myth:</b> it is not "consciousness" or a human looking that causes this. Any physical interaction that records which-path information — a detector, a stray photon, even a poorly isolated measuring device — is enough to destroy the interference, whether or not anyone ever reads the result.</p>
+      </div>
+    </div>
+
+    <div class="sec" id="collapse" data-reveal>
+      <div class="sec-eyebrow">05 — Mechanism</div>
+      <h2>Collapse, or just decoherence?</h2>
+      <p>Historically this was described as the <b>collapse of the wavefunction</b>: before measurement, the photon exists in a superposition of "went through slit A" and "went through slit B"; the act of measurement forces it to "choose" one, instantaneously and irreversibly.</p>
+      <p>The modern, more mechanistic picture is <b>decoherence</b>. The photon never truly evolves in isolation — the moment it becomes entangled with a which-path detector, the combined system's state is:</p>
+      <div class="formula">|Ψ⟩ = |slit A⟩|detector saw A⟩ + |slit B⟩|detector saw B⟩</div>
+      <p>Because the detector states <span class="mono">|saw A⟩</span> and <span class="mono">|saw B⟩</span> are distinguishable, the cross-terms between them average out to zero for any observer who only looks at the photon — not because anything "collapsed," but because the interference information leaked into the environment and became practically unrecoverable. Both descriptions predict identical results; the simulation is agnostic between them, and mainstream physics still debates which is the more fundamental picture.</p>
+      <p>This is also the principle Niels Bohr called <b>complementarity</b>: wave-like and particle-like behaviour are two faces of the same system, but a single experiment can only ever reveal one face at a time. Precise which-path information and high-contrast interference are mutually exclusive — you can dial between them (try partial detector efficiency in real experiments), but you can never have perfect versions of both simultaneously.</p>
+    </div>
+
+    <div class="sec" id="why" data-reveal>
+      <div class="sec-eyebrow">06 — Why it matters</div>
+      <h2>The one experiment that contains all of quantum weirdness</h2>
+      <p>Richard Feynman used this exact setup in his lectures to argue that it holds the <b>only real mystery</b> of quantum mechanics — every other strange quantum phenomenon can be explained by reasoning through this one carefully. It has since been repeated with electrons, neutrons, and even large molecules like buckyballs, always with the same result: matter itself carries this wave-particle duality, not just light.</p>
+      <p>The double-slit experiment isn't a historical curiosity — it's the direct ancestor of modern quantum technologies. Quantum computing, quantum cryptography, and quantum sensing all exploit the same core fact this apparatus demonstrates: that measurement is not a passive act of observation, but a physical interaction that changes what is real to measure.</p>
+      <div class="callout tip">
+        <div class="ic">🔬</div>
+        <p>Scroll back up, turn the detector on and off a few times, and watch the histogram redraw. You're not just watching an animation — the plotted curve is the actual theoretical prediction, and the dots are being sampled live from it.</p>
+      </div>
+    </div>
+
+  </div>
+
+  <footer>
+    Built as an educational simulation. Physics: Fraunhofer diffraction &amp; two-slit interference formulas, sampled per-photon via rejection sampling. Not a substitute for a real optics bench.
+  </footer>
+</section>
+
+<script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
+<script src="https://unpkg.com/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+(function(){
+  "use strict";
+
+  /* ================= PHYSICS ================= */
+  const L = 6.2;              // slit-plate to screen distance (sim units)
+  const SCREEN_HALF_X = 2.2;
+  const SCREEN_HALF_Y = 1.2;
+  const PLATE_Z = 0, SOURCE_Z = -6.2, SCREEN_Z = L;
+
+  const state = {
+    wavelengthNm: 632,
+    d: 1.1,
+    a: 0.16,
+    rate: 18,
+    observer: false,
+    showWave: true,
+    running: true,
+    count: 0
+  };
+
+  function lambdaSim(nm){
+    return 0.045 + (nm-380)/(700-380) * (0.075-0.045);
+  }
+  function sinc(t){ return Math.abs(t) < 1e-6 ? 1 : Math.sin(t)/t; }
+
+  function I_coherent(x){
+    const lam = lambdaSim(state.wavelengthNm);
+    const beta = Math.PI*state.a*x/(lam*L);
+    const delta = Math.PI*state.d*x/(lam*L);
+    const s = sinc(beta);
+    const c = Math.cos(delta);
+    return s*s*c*c;
+  }
+  function I_whichPath(x){
+    const lam = lambdaSim(state.wavelengthNm);
+    const X1 = -state.d/2, X2 = state.d/2;
+    const b1 = Math.PI*state.a*(x-X1)/(lam*L);
+    const b2 = Math.PI*state.a*(x-X2)/(lam*L);
+    const s1 = sinc(b1), s2 = sinc(b2);
+    return s1*s1 + s2*s2;
+  }
+  function I_singleSlit(x, slitX){
+    const lam = lambdaSim(state.wavelengthNm);
+    const b = Math.PI*state.a*(x-slitX)/(lam*L);
+    const s = sinc(b);
+    return s*s;
+  }
+
+  let maxCoh = 1, maxInc = 1;
+  function recomputeMax(){
+    maxCoh = 1e-6; maxInc = 1e-6;
+    for(let i=0;i<=400;i++){
+      const x = -SCREEN_HALF_X + (i/400)*SCREEN_HALF_X*2;
+      maxCoh = Math.max(maxCoh, I_coherent(x));
+      maxInc = Math.max(maxInc, I_whichPath(x));
+    }
+  }
+  recomputeMax();
+
+  function sampleX(observerOn, slitChoice){
+    const maxV = observerOn ? maxInc : maxCoh;
+    for(let tries=0; tries<60; tries++){
+      const x = (Math.random()*2-1)*SCREEN_HALF_X;
+      let val;
+      if(observerOn){
+        const slitX = slitChoice===0 ? -state.d/2 : state.d/2;
+        val = I_singleSlit(x, slitX);
+      } else {
+        val = I_coherent(x);
+      }
+      if(Math.random()*maxV < val) return x;
+    }
+    return (Math.random()*2-1)*SCREEN_HALF_X;
+  }
+
+  function wavelengthToRGB(wl){
+    let r=0,g=0,b=0,factor;
+    if(wl>=380&&wl<440){r=-(wl-440)/(440-380);g=0;b=1;}
+    else if(wl>=440&&wl<490){r=0;g=(wl-440)/(490-440);b=1;}
+    else if(wl>=490&&wl<510){r=0;g=1;b=-(wl-510)/(510-490);}
+    else if(wl>=510&&wl<580){r=(wl-510)/(580-510);g=1;b=0;}
+    else if(wl>=580&&wl<645){r=1;g=-(wl-645)/(645-580);b=0;}
+    else if(wl>=645&&wl<=780){r=1;g=0;b=0;}
+    if(wl>=380&&wl<420) factor=0.3+0.7*(wl-380)/(420-380);
+    else if(wl>=420&&wl<701) factor=1;
+    else if(wl>=701&&wl<=780) factor=0.3+0.7*(780-wl)/(780-701);
+    else factor=0;
+    const gamma=0.8;
+    const R = r===0?0:Math.pow(r*factor,gamma);
+    const G = g===0?0:Math.pow(g*factor,gamma);
+    const B = b===0?0:Math.pow(b*factor,gamma);
+    return new THREE.Color(R,G,B);
+  }
+
+  /* ================= THREE.JS SCENE ================= */
+  const wrap = document.getElementById('canvas-wrap');
+  const scene = new THREE.Scene();
+  scene.fog = new THREE.FogExp2(0x080b10, 0.028);
+
+  const camera = new THREE.PerspectiveCamera(48, wrap.clientWidth/wrap.clientHeight, 0.1, 100);
+  camera.position.set(1.2, 3.6, 10.5);
+
+  const renderer = new THREE.WebGLRenderer({ antialias:true, alpha:false });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setSize(wrap.clientWidth, wrap.clientHeight);
+  renderer.setClearColor(0x080b10, 1);
+  wrap.appendChild(renderer.domElement);
+
+  const controls = new THREE.OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.08;
+  controls.minDistance = 4;
+  controls.maxDistance = 22;
+  controls.maxPolarAngle = Math.PI*0.53;
+  controls.target.set(0, 0, 1.5);
+  controls.update();
+
+  // lights
+  scene.add(new THREE.AmbientLight(0x1a2230, 1.1));
+  const keyLight = new THREE.DirectionalLight(0x8fb4ff, 0.35);
+  keyLight.position.set(4,6,2);
+  scene.add(keyLight);
+
+  // floor grid
+  const grid = new THREE.GridHelper(30, 30, 0x1a2436, 0x121824);
+  grid.position.y = -1.55;
+  scene.add(grid);
+
+  let laserColor = wavelengthToRGB(state.wavelengthNm);
+
+  // --- source ---
+  const sourceGroup = new THREE.Group();
+  const sourceBody = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.22,0.28,0.7,20),
+    new THREE.MeshStandardMaterial({ color:0x1a1f28, metalness:0.6, roughness:0.35, emissive:0x000000 })
+  );
+  sourceBody.rotation.z = Math.PI/2;
+  sourceGroup.add(sourceBody);
+  const sourceGlow = new THREE.Mesh(
+    new THREE.SphereGeometry(0.12,16,16),
+    new THREE.MeshBasicMaterial({ color: laserColor })
+  );
+  sourceGlow.position.z = 0.35;
+  sourceGroup.add(sourceGlow);
+  const sourceLight = new THREE.PointLight(laserColor, 1.2, 6);
+  sourceLight.position.z = 0.4;
+  sourceGroup.add(sourceLight);
+  sourceGroup.position.set(0,0,SOURCE_Z);
+  scene.add(sourceGroup);
+
+  // beam cylinder (decorative)
+  const beamGeo = new THREE.CylinderGeometry(0.028,0.028, Math.abs(PLATE_Z-SOURCE_Z), 12, 1, true);
+  const beamMat = new THREE.MeshBasicMaterial({ color: laserColor, transparent:true, opacity:0.28, blending:THREE.AdditiveBlending, side:THREE.DoubleSide, depthWrite:false });
+  const beamMesh = new THREE.Mesh(beamGeo, beamMat);
+  beamMesh.rotation.x = Math.PI/2;
+  beamMesh.position.set(0,0,(SOURCE_Z+PLATE_Z)/2);
+  scene.add(beamMesh);
+
+  // --- slit plate (rebuilt on param change) ---
+  const plateGroup = new THREE.Group();
+  scene.add(plateGroup);
+  const wallMat = new THREE.MeshStandardMaterial({ color:0x0f131b, metalness:0.5, roughness:0.55 });
+  const wallHeight = 2.7, wallDepth = 0.14, wallHalfX = 2.7;
+
+  function buildPlate(){
+    while(plateGroup.children.length) plateGroup.remove(plateGroup.children[0]);
+    let a = Math.min(state.a, state.d*0.85);
+    const X1 = -state.d/2, X2 = state.d/2;
+    const segs = [
+      [-wallHalfX, X1-a/2],
+      [X1+a/2, X2-a/2],
+      [X2+a/2, wallHalfX]
+    ];
+    segs.forEach(([s,e])=>{
+      const w = Math.max(e-s, 0.001);
+      const m = new THREE.Mesh(new THREE.BoxGeometry(w, wallHeight, wallDepth), wallMat);
+      m.position.set((s+e)/2, 0, 0);
+      plateGroup.add(m);
+    });
+    // slit edge glow strips
+    [X1,X2].forEach(sx=>{
+      const glow = new THREE.Mesh(
+        new THREE.PlaneGeometry(a, wallHeight),
+        new THREE.MeshBasicMaterial({ color: laserColor, transparent:true, opacity:0.16, blending:THREE.AdditiveBlending, side:THREE.DoubleSide, depthWrite:false })
+      );
+      glow.position.set(sx, 0, 0.08);
+      plateGroup.add(glow);
+    });
+    // frame edges for legibility
+    const edgeMat = new THREE.LineBasicMaterial({ color:0x2a3548 });
+    const outline = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(wallHalfX*2, wallHeight, wallDepth)), edgeMat);
+    outline.material.transparent = true; outline.material.opacity = 0.25;
+    plateGroup.add(outline);
+  }
+  buildPlate();
+
+  // --- screen ---
+  const screenGroup = new THREE.Group();
+  screenGroup.position.z = SCREEN_Z;
+  scene.add(screenGroup);
+  const screenPlane = new THREE.Mesh(
+    new THREE.PlaneGeometry(SCREEN_HALF_X*2+0.3, SCREEN_HALF_Y*2+0.6),
+    new THREE.MeshStandardMaterial({ color:0x060a10, metalness:0.2, roughness:0.9 })
+  );
+  screenGroup.add(screenPlane);
+  const screenEdges = new THREE.LineSegments(
+    new THREE.EdgesGeometry(new THREE.PlaneGeometry(SCREEN_HALF_X*2+0.3, SCREEN_HALF_Y*2+0.6)),
+    new THREE.LineBasicMaterial({ color:0x2a3548, transparent:true, opacity:0.4 })
+  );
+  screenGroup.add(screenEdges);
+
+  // hit points (phosphor accumulation)
+  const MAX_HITS = 9000;
+  const hitPositions = new Float32Array(MAX_HITS*3);
+  const hitGeo = new THREE.BufferGeometry();
+  hitGeo.setAttribute('position', new THREE.BufferAttribute(hitPositions, 3));
+  hitGeo.setDrawRange(0,0);
+  const hitMat = new THREE.PointsMaterial({
+    color: 0x52ffab, size:0.045, sizeAttenuation:true,
+    transparent:true, opacity:0.95, blending:THREE.AdditiveBlending, depthWrite:false
+  });
+  const hitPoints = new THREE.Points(hitGeo, hitMat);
+  hitPoints.position.z = SCREEN_Z + 0.02;
+  scene.add(hitPoints);
+  let hitCount = 0;
+
+  function addHit(x,y){
+    if(hitCount >= MAX_HITS) return;
+    hitPositions[hitCount*3] = x;
+    hitPositions[hitCount*3+1] = y;
+    hitPositions[hitCount*3+2] = 0;
+    hitCount++;
+    hitGeo.setDrawRange(0, hitCount);
+    hitGeo.attributes.position.needsUpdate = true;
+  }
+  function clearHits(){
+    hitCount = 0;
+    hitGeo.setDrawRange(0,0);
+    bins.fill(0);
+    drawHist();
+  }
+
+  /* ---- traveling particles ---- */
+  const activeParticles = [];
+  const flashRings = [];
+  const clock = new THREE.Clock();
+  let emitAccumulator = 0;
+
+  const partGeo = new THREE.SphereGeometry(0.045, 10, 10);
+  function makeParticleMesh(color, opacity){
+    const mat = new THREE.MeshBasicMaterial({ color, transparent:true, opacity: opacity===undefined?1:opacity, blending:THREE.AdditiveBlending, depthWrite:false });
+    return new THREE.Mesh(partGeo, mat);
+  }
+
+  const DURATION = 1.6;
+
+  function spawnParticle(){
+    const observerOn = state.observer;
+    let slit = -1;
+    let hitX, hitY;
+    if(observerOn){
+      slit = Math.random() < 0.5 ? 0 : 1;
+      hitX = sampleX(true, slit);
+    } else {
+      hitX = sampleX(false, 0);
+    }
+    hitY = (Math.random()*2-1)*SCREEN_HALF_Y*0.85;
+
+    const p = {
+      t0: clock.elapsedTime,
+      observerOn, slit, hitX, hitY,
+      flashed:false,
+      landed:false
+    };
+
+    if(observerOn){
+      p.mesh = makeParticleMesh(laserColor, 1);
+      scene.add(p.mesh);
+    } else {
+      p.mesh = makeParticleMesh(laserColor, 1);
+      p.ghost1 = makeParticleMesh(laserColor, 0.45);
+      p.ghost2 = makeParticleMesh(laserColor, 0.45);
+      scene.add(p.mesh, p.ghost1, p.ghost2);
+    }
+    activeParticles.push(p);
+  }
+
+  function lerpV(a,b,t){ return a+(b-a)*t; }
+
+  function updateParticles(){
+    const now = clock.elapsedTime;
+    for(let i=activeParticles.length-1;i>=0;i--){
+      const p = activeParticles[i];
+      const t = (now-p.t0)/DURATION;
+      if(t>=1){
+        addHit(p.hitX, p.hitY);
+        state.count++;
+        registerHitForHistogram(p.hitX);
+        scene.remove(p.mesh);
+        if(p.ghost1){ scene.remove(p.ghost1); scene.remove(p.ghost2); }
+        activeParticles.splice(i,1);
+        continue;
+      }
+
+      if(p.observerOn){
+        const slitX = p.slit===0 ? -state.d/2 : state.d/2;
+        if(t < 0.5){
+          const tt = t/0.5;
+          p.mesh.position.set(lerpV(0,slitX,tt), 0, lerpV(SOURCE_Z,PLATE_Z,tt));
+        } else {
+          if(!p.flashed){ p.flashed = true; spawnFlash(slitX); }
+          const tt = (t-0.5)/0.5;
+          p.mesh.position.set(lerpV(slitX,p.hitX,tt), lerpV(0,p.hitY,tt), lerpV(PLATE_Z,SCREEN_Z,tt));
+        }
+      } else {
+        const X1 = -state.d/2, X2 = state.d/2;
+        if(t < 0.5){
+          const tt = t/0.5;
+          p.mesh.position.set(0,0, lerpV(SOURCE_Z,PLATE_Z,tt));
+          p.mesh.material.opacity = lerpV(0.2,1,tt);
+          p.ghost1.position.set(lerpV(0,X1,tt),0, lerpV(SOURCE_Z,PLATE_Z,tt));
+          p.ghost2.position.set(lerpV(0,X2,tt),0, lerpV(SOURCE_Z,PLATE_Z,tt));
+          const gop = 0.5*(1-tt);
+          p.ghost1.material.opacity = gop;
+          p.ghost2.material.opacity = gop;
+        } else {
+          const tt = (t-0.5)/0.5;
+          p.mesh.position.set(lerpV(0,p.hitX,tt), lerpV(0,p.hitY,tt), lerpV(PLATE_Z,SCREEN_Z,tt));
+          p.mesh.material.opacity = 1;
+          if(p.ghost1.parent){ scene.remove(p.ghost1); scene.remove(p.ghost2); }
+        }
+      }
+    }
+  }
+
+  function spawnFlash(slitX){
+    const mesh = new THREE.Mesh(
+      new THREE.SphereGeometry(0.09,12,12),
+      new THREE.MeshBasicMaterial({ color:0xff5170, transparent:true, opacity:1, blending:THREE.AdditiveBlending, depthWrite:false })
+    );
+    mesh.position.set(slitX,0,0);
+    scene.add(mesh);
+    flashRings.push({ mesh, t0: clock.elapsedTime, dur:0.4 });
+  }
+  function updateFlashes(){
+    const now = clock.elapsedTime;
+    for(let i=flashRings.length-1;i>=0;i--){
+      const f = flashRings[i];
+      const t = (now-f.t0)/f.dur;
+      if(t>=1){ scene.remove(f.mesh); flashRings.splice(i,1); continue; }
+      const s = 1 + t*3.2;
+      f.mesh.scale.setScalar(s);
+      f.mesh.material.opacity = 1-t;
+    }
+  }
+
+  /* ---- wave ripples ---- */
+  const ripples = [];
+  let rippleAccum = 0;
+  const RIPPLE_INTERVAL = 0.22, RIPPLE_LIFE = 2.6, RIPPLE_MAXR = 6.4;
+
+  function spawnRipplePair(){
+    [-state.d/2, state.d/2].forEach(sx=>{
+      const geo = new THREE.RingGeometry(0.02, 0.05, 48);
+      const mat = new THREE.MeshBasicMaterial({ color: laserColor, transparent:true, opacity:0.5, side:THREE.DoubleSide, blending:THREE.AdditiveBlending, depthWrite:false });
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.rotation.x = Math.PI/2;
+      mesh.position.set(sx,0,0);
+      scene.add(mesh);
+      ripples.push({ mesh, t0: clock.elapsedTime });
+    });
+  }
+  function updateRipples(){
+    const now = clock.elapsedTime;
+    rippleAccum += clock.getDelta_last || 0;
+    for(let i=ripples.length-1;i>=0;i--){
+      const r = ripples[i];
+      const t = (now-r.t0)/RIPPLE_LIFE;
+      if(t>=1){ scene.remove(r.mesh); r.mesh.geometry.dispose(); ripples.splice(i,1); continue; }
+      const rad = t*RIPPLE_MAXR;
+      r.mesh.geometry.dispose();
+      r.mesh.geometry = new THREE.RingGeometry(Math.max(rad-0.035,0.001), rad, 48);
+      r.mesh.material.opacity = 0.45*(1-t);
+    }
+  }
+  function clearRipples(){
+    ripples.forEach(r=>{ scene.remove(r.mesh); r.mesh.geometry.dispose(); });
+    ripples.length = 0;
+  }
+
+  /* ================= HISTOGRAM ================= */
+  const NBINS = 46;
+  const bins = new Array(NBINS).fill(0);
+  const histCanvas = document.getElementById('histCanvas');
+  const hctx = histCanvas.getContext('2d');
+
+  function registerHitForHistogram(x){
+    let idx = Math.floor(((x+SCREEN_HALF_X)/(SCREEN_HALF_X*2)) * NBINS);
+    idx = Math.max(0, Math.min(NBINS-1, idx));
+    bins[idx]++;
+    drawHist();
+  }
+
+  function drawHist(){
+    const W = histCanvas.width, H = histCanvas.height;
+    hctx.clearRect(0,0,W,H);
+    hctx.fillStyle = 'rgba(255,255,255,0.02)';
+    hctx.fillRect(0,0,W,H);
+
+    const maxBin = Math.max(1, ...bins);
+    const bw = W/NBINS;
+    hctx.fillStyle = '#52ffab';
+    for(let i=0;i<NBINS;i++){
+      const h = (bins[i]/maxBin) * (H-14);
+      hctx.globalAlpha = 0.85;
+      hctx.fillRect(i*bw+1, H-h-4, bw-2, h);
+    }
+    hctx.globalAlpha = 1;
+
+    // theory curve
+    const fn = state.observer ? I_whichPath : I_coherent;
+    let maxT = 1e-6;
+    const N=140, vals=[];
+    for(let i=0;i<=N;i++){
+      const x = -SCREEN_HALF_X + (i/N)*SCREEN_HALF_X*2;
+      const v = fn(x);
+      vals.push(v);
+      if(v>maxT) maxT=v;
+    }
+    hctx.strokeStyle = '#3ee8ff';
+    hctx.lineWidth = 2;
+    hctx.beginPath();
+    for(let i=0;i<=N;i++){
+      const px = (i/N)*W;
+      const py = H-4-(vals[i]/maxT)*(H-14);
+      if(i===0) hctx.moveTo(px,py); else hctx.lineTo(px,py);
+    }
+    hctx.stroke();
+
+    // baseline
+    hctx.strokeStyle = 'rgba(255,255,255,0.12)';
+    hctx.lineWidth = 1;
+    hctx.beginPath(); hctx.moveTo(0,H-3.5); hctx.lineTo(W,H-3.5); hctx.stroke();
+  }
+  drawHist();
+
+  /* ================= UI WIRING ================= */
+  const wlSlider = document.getElementById('wlSlider');
+  const dSlider = document.getElementById('dSlider');
+  const aSlider = document.getElementById('aSlider');
+  const rateSlider = document.getElementById('rateSlider');
+  const observerToggle = document.getElementById('observerToggle');
+  const waveToggle = document.getElementById('waveToggle');
+  const playPauseBtn = document.getElementById('playPauseBtn');
+  const resetBtn = document.getElementById('resetBtn');
+  const observerRow = document.getElementById('observerRow');
+
+  function updateColors(){
+    laserColor = wavelengthToRGB(state.wavelengthNm);
+    document.getElementById('wlSwatch').style.background = '#'+laserColor.getHexString();
+    sourceGlow.material.color = laserColor;
+    sourceLight.color = laserColor;
+    beamMat.color = laserColor;
+    buildPlate();
+  }
+
+  wlSlider.addEventListener('input', ()=>{
+    state.wavelengthNm = parseInt(wlSlider.value,10);
+    document.getElementById('wlVal').textContent = state.wavelengthNm + ' nm';
+    recomputeMax();
+    updateColors();
+    updateStats();
+    drawHist();
+  });
+  dSlider.addEventListener('input', ()=>{
+    state.d = parseFloat(dSlider.value);
+    document.getElementById('dVal').textContent = state.d.toFixed(2);
+    recomputeMax();
+    buildPlate();
+    updateStats();
+    drawHist();
+  });
+  aSlider.addEventListener('input', ()=>{
+    state.a = parseFloat(aSlider.value);
+    document.getElementById('aVal').textContent = state.a.toFixed(2);
+    recomputeMax();
+    buildPlate();
+    drawHist();
+  });
+  rateSlider.addEventListener('input', ()=>{
+    state.rate = parseInt(rateSlider.value,10);
+    document.getElementById('rateVal').textContent = state.rate + ' / s';
+  });
+
+  observerToggle.addEventListener('change', ()=>{
+    state.observer = observerToggle.checked;
+    observerRow.classList.toggle('active', state.observer);
+    clearHits();
+    clearRipples();
+    updatePatternBadge();
+  });
+  waveToggle.addEventListener('change', ()=>{ state.showWave = waveToggle.checked; if(!state.showWave) clearRipples(); });
+
+  playPauseBtn.addEventListener('click', ()=>{
+    state.running = !state.running;
+    playPauseBtn.innerHTML = state.running ? '⏸ Pause' : '▶ Play';
+  });
+  resetBtn.addEventListener('click', ()=>{ clearHits(); state.count=0; updateStats(); });
+
+  function updatePatternBadge(){
+    const badge = document.getElementById('patternBadge');
+    const statusEl = document.getElementById('status');
+    const modeEl = document.getElementById('statusMode');
+    if(state.observer){
+      badge.textContent = '● Classical (which-path) pattern';
+      badge.classList.add('observed');
+      statusEl.classList.add('observed');
+      modeEl.textContent = 'MEASURED';
+      statusEl.innerHTML = '<span class="accent mono" id="statusMode">MEASURED</span> — the detector tags each photon\'s slit. Path information exists, so the interference term vanishes: only two overlapping single-slit humps remain.';
+    } else {
+      badge.textContent = '◈ Interference pattern';
+      badge.classList.remove('observed');
+      statusEl.classList.remove('observed');
+      statusEl.innerHTML = '<span class="accent mono" id="statusMode">SUPERPOSITION</span> — each photon\'s wavefunction passes through <b>both slits at once</b> and interferes with itself before landing on the screen.';
+    }
+  }
+
+  function updateStats(){
+    document.getElementById('statCount').textContent = state.count.toLocaleString();
+    const lam = lambdaSim(state.wavelengthNm);
+    const fringe = (lam*L/state.d);
+    document.getElementById('statFringe').textContent = fringe.toFixed(3)+' u';
+    document.getElementById('statRegime').textContent = 'Fraunhofer (far-field)';
+  }
+  updateStats();
+  updatePatternBadge();
+  updateColors();
+
+  // onboarding tip auto-hide
+  const tip = document.getElementById('onboardTip');
+  setTimeout(()=>{ tip.style.opacity='0'; tip.style.visibility='hidden'; }, 6500);
+  renderer.domElement.addEventListener('pointerdown', ()=>{ tip.style.opacity='0'; tip.style.visibility='hidden'; }, { once:true });
+
+  /* ================= RENDER LOOP ================= */
+  let lastRippleTime = 0;
+  function animate(){
+    requestAnimationFrame(animate);
+    const dt = clock.getDelta();
+    controls.update();
+
+    if(state.running){
+      emitAccumulator += dt*state.rate;
+      let guard=0;
+      while(emitAccumulator>=1 && guard<10){ spawnParticle(); emitAccumulator-=1; guard++; }
+      updateParticles();
+      updateFlashes();
+
+      if(!state.observer && state.showWave){
+        lastRippleTime += dt;
+        if(lastRippleTime >= RIPPLE_INTERVAL){ spawnRipplePair(); lastRippleTime = 0; }
+        updateRipples();
+      }
+      updateStats();
+    }
+
+    // gentle beam pulse
+    beamMat.opacity = 0.22 + Math.sin(clock.elapsedTime*2)*0.04;
+
+    renderer.render(scene, camera);
+  }
+  animate();
+
+  window.addEventListener('resize', ()=>{
+    camera.aspect = wrap.clientWidth/wrap.clientHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(wrap.clientWidth, wrap.clientHeight);
+  });
+
+  /* ================= SCROLL REVEAL ================= */
+  const revealEls = document.querySelectorAll('[data-reveal]');
+  const io = new IntersectionObserver((entries)=>{
+    entries.forEach(e=>{ if(e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target); } });
+  }, { threshold:0.12 });
+  revealEls.forEach(el=>io.observe(el));
+
+})();
+</script>
+</body>
+</html>
