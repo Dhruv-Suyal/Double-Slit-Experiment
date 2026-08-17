@@ -10,8 +10,6 @@ The project allows you to add or remove a which-path observer and visually compa
 
 [Click here to try the Interactive Double-Slit Experiment](https://double-slit00.netlify.app/)
 
-> Replace `YOUR_LIVE_DEMO_URL` with your GitHub Pages or other deployment URL.
-
 ---
 
 ## 📖 About the Project
